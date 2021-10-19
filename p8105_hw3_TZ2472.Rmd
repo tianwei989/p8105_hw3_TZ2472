@@ -6,7 +6,147 @@ output: github_document
 ---
 
 ```{r}
+library(tidyverse)
+
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+
+## Problem 1
+
+
+The goal is to do some exploration of this dataset. To that end, write a short description of the dataset, noting the size and structure of the data, describing some key variables, and giving illstrative examples of observations. Then, do or answer the following (commenting on the results of each):
+
+```{r}
 library(p8105.datasets)
 data("instacart")
+
+
+#an illustrative example of the first order:
+instacart %>% 
+  filter(order_id%in%  "1")
+
 ```
+
+In the instacart data set, we have a total of `r nrow(instacart)` observations, each represents an order in instacart .The data has `r ncol(instacart)` variables, collects key information about instacart such as : order identifier, product identifier, order in which each product was added to cart, reordered records, customer identifier, the order sequence number for usesr, the day of the week on which the order was placed, the hour of the day on which the order was placed, days since the last order, name of the product, aisle identifier,department identifier, name of the aisle,  name of the department.
+
+Take example of the first order of instacart,On Thursday 10 o'clock, an user ID 112108 check out 8 items that are Bulgarian Yogurt, Organic 4% Milk Fat Whole Milk Cottage Cheese, Organic Celery Hearts,	Cucumber Kirby,	Lightly Smoked Sardines in Olive Oil,	Bag of Organic Bananas,	Organic Hass Avocado, Organic Whole String Cheese(exactly in this order).Those items are in aisle of yogurt,other creams cheeses,fresh vegetables,fresh vegetables,canned meat seafood,fresh fruits,	fresh fruits,and packaged cheese.It has been 9 days since the user 112108's last order.Among the orders, Bulgarian Yogurt, Organic 4% Milk Fat Whole Milk Cottage Cheese,Lightly Smoked Sardines in Olive Oil,Organic Whole String Cheese are ordered before, and the rest are new tries to this user.
+
+
+
+How many aisles are there, and which aisles are the most items ordered from?
+
+```{r}
+instacart %>% 
+  count(aisle,aisle_id) %>% 
+  arrange(desc(n))
+
+```
+
+The result data set(134*3) gives us the most ordered items in the first row,from the table we can find there are 134 aisles and the fresh vegetables is the most items ordered from.
+
+
+
+Make a plot that shows the number of items ordered in each aisle, limiting this to aisles with more than 10000 items ordered. Arrange aisles sensibly, and organize your plot so others can read it.
+
+```{r}
+  instacart %>% 
+  count(aisle) %>% 
+  arrange(n) %>% 
+  filter(n>10000) %>% 
+  mutate(
+    aisle = factor(aisle),
+    aisle = forcats::fct_reorder(aisle, sort(n))) %>% 
+  ggplot(aes(x=n,y=aisle,color = n))+
+  geom_point()+
+  labs(
+    title = "Number of items ordered in Insta's aisles plot",
+    x = "Number of items ordered",
+    y = "Aisle",
+    caption = "Data from the instacart"
+  )+
+  scale_x_continuous(
+    breaks = c(0,20000,40000,60000,80000,100000,120000,140000)
+  )
+
+```
+
+I arrange the aisles in a increasing order of number of items ordered for better readability, and use color function to denote the difference of number of items ordered.The lighter the color is , the more the item ordered.
+
+
+
+Make a table showing the three most popular items in each of the aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”. Include the number of times each item is ordered in your table.
+
+```{r}
+new_df = instacart %>% 
+  filter(aisle%in%c("baking ingredients", "dog food care","packaged vegetables fruits")) %>% 
+  group_by(product_name,aisle) %>% 
+  summarize(n_obs=n())
+
+baking_df = 
+  filter(new_df,aisle%in% "baking ingredients") %>% 
+  arrange(desc(n_obs)) %>% 
+  filter(n_obs> 330)
+
+dog_df = 
+  filter(new_df,aisle%in% "dog food care") %>% 
+  arrange(desc(n_obs)) %>% 
+  filter(n_obs> 25)
+
+vegfruit_df = 
+  filter(new_df,aisle%in% "packaged vegetables fruits") %>% 
+  arrange(desc(n_obs)) %>% 
+  filter(n_obs> 4060)
+
+top3_table = 
+  bind_rows(baking_df,dog_df,vegfruit_df) %>% 
+  relocate(aisle) %>% 
+  rename(num_of_time_ordered = n_obs) %>% 
+  knitr::kable(caption = "TOP3 Popular Items")
+
+top3_table
+
+```
+
+In the table top3_table, it contains the top 3 popular items' names and number of times ordered in baking ingredients aisle, dog food care aisle, and packaged vegetables fruits aisle.
+ 
+ 
+
+Make a table showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week; format this table for human readers (i.e. produce a 2 x 7 table).
+
+```{r}
+pinkapple_df = instacart %>% 
+  filter(product_name%in%c("Pink Lady Apples","Coffee Ice Cream"))%>% 
+  group_by(order_dow,product_name) %>% 
+  summarize(
+    mean_hour = mean(order_hour_of_day)) %>% 
+  pivot_wider(
+    names_from = "order_dow",
+    values_from = "mean_hour",
+  ) %>% 
+  rename("Sunday" = "0", 
+         "Monday" = "1", 
+         "Tuesday" = "2", 
+         "Wednesday" = "3",
+         "Thursday" = "4",
+         "Friday" = "5",
+         "Saturday" = "6") %>% 
+  knitr::kable(caption = "Mean Hour on Each Day of the Week")
+  
+pinkapple_df
+```
+
+This table shows the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week. The mean hour of the day that people order Pink Lady Apples and Coffee Ice Cream is around 11 o'clock and 14 o'clock. The mean varies very slightly in each day of the week. 
+
+
+##Problem 2 
 
