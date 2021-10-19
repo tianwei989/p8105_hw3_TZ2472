@@ -150,3 +150,149 @@ This table shows the mean hour of the day at which Pink Lady Apples and Coffee I
 
 ##Problem 2 
 
+
+```{r}
+library(p8105.datasets)
+data("brfss_smart2010")
+```
+
+First, do some data cleaning:
+
+format the data to use appropriate variable names;
+focus on the “Overall Health” topic
+include only responses from “Excellent” to “Poor”
+organize responses as a factor taking levels ordered from “Poor” to “Excellent”
+
+```{r}
+mydata_df=brfss_smart2010 %>% 
+  janitor::clean_names() %>% 
+  rename(
+    state = locationabbr,
+    location = locationdesc
+  ) %>% 
+  filter(topic%in%"Overall Health",
+         response%in% c("Excellent","Very good","Good","Fair","Poor")) %>% 
+  relocate(topic,response) %>% 
+  mutate(
+    response = factor(response),
+    response = forcats::fct_relevel(response,c("Poor","Fair","Good","Very good","Excellent"))
+  ) %>% 
+  arrange(response)
+mydata_df
+```
+
+
+
+
+Using this dataset, do or answer the following (commenting on the results of each):
+
+In 2002, which states were observed at 7 or more locations? What about in 2010?
+
+```{r}
+mydata_df %>% 
+  filter(year == 2002) %>% 
+  group_by(state) %>%
+  summarize(n_obs=n_distinct(location)) %>% 
+  filter(n_obs>=7) %>% 
+  select(state)
+
+mydata_df %>% 
+  filter(year == 2010) %>% 
+  group_by(state) %>%
+  summarize(n_obs=n_distinct(location)) %>% 
+  filter(n_obs>=7) %>% 
+  select(state)
+
+
+```
+
+In 2002, there are 6 states that were observed at 7 or more locations. Those states are CT,FL,MA, NC, NJ, and PA. 
+
+In 2010, there are 14 states that were observed at 7 or more locations. Those states are CA, CO, FL, MA, MD, NC, NE, NJ, NY, OH, PA, SC, TX, and WA. 
+
+
+Construct a dataset that is limited to Excellent responses, and contains, year, state, and a variable that averages the data_value across locations within a state. Make a “spaghetti” plot of this average value over time within a state (that is, make a plot showing a line for each state across years – the geom_line geometry and group aesthetic will help).
+
+```{r}
+mydata_df %>% 
+  filter(response == "Excellent") %>% 
+  group_by(year,state) %>% 
+  mutate(mean_data_value = mean(data_value,rm.na=TRUE)) %>% 
+  select(year,state,mean_data_value) %>% 
+  ggplot(aes(x = year,y = mean_data_value,color = state))+
+  geom_line(aes(group = state))+
+  theme(legend.position = "right")
+  
+  
+```
+
+Make a two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
+
+```{r}
+mydata_df %>% 
+  filter(year%in%c(2006,2009),
+         state == "NY") %>% 
+  ggplot(aes(x = data_value, fill = response)) +
+  geom_density(alpha = .5) + 
+  facet_grid(. ~ year) +
+  theme(legend.position = "bottom")
+```
+
+
+## Problem 3
+
+Load, tidy, and otherwise wrangle the data. Your final dataset should include all originally observed variables and values; have useful variable names; include a weekday vs weekend variable; and encode data with reasonable variable classes. Describe the resulting dataset (e.g. what variables exist, how many observations, etc).
+
+```{r}
+accel_df = read_csv("accel_data.csv") %>% 
+  janitor::clean_names() %>% 
+  pivot_longer(
+   "activity_1":"activity_1440",
+    names_to = "activity_order",
+    names_prefix = "activity_",
+    values_to = "activity") %>% 
+  rename(activity_counts = activity) %>% 
+  mutate(
+    day_type = if_else(day %in% c("Saturday","Sunday"), "weekend","weekday"),
+    week = as.integer(week),
+    day_id = as.integer(day_id),
+    activity_order = as.integer(activity_order)
+          ) %>% 
+  select(week,day_id,day, day_type,activity_order,activity_counts)
+
+```
+
+This data set have `r ncol(accel_df)` variables, including the week, day, day_id, minute of the day, day_type, and activity value. The set has `r nrow(accel_df)` observations. Each observation is about the activity counts for a specific minute from a 24-hour day and the information about that day, including the week, day_id, and whether it is a weekday or weekend.
+
+
+Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate accross minutes to create a total activity variable for each day, and create a table showing these totals. Are any trends apparent?
+
+```{r}
+accel_df %>% 
+  group_by(day_id) %>% 
+  mutate(total_activity = sum(activity_counts)) %>% 
+  select(day_id, day, day_type, total_activity) %>% 
+  distinct() %>% 
+  knitr::kable()
+
+```
+
+No, there is no trends apparent.
+
+
+Accelerometer data allows the inspection activity over the course of the day. Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph.
+
+```{r}
+total_activity_df = accel_df %>% 
+  group_by(day_id) %>% 
+mutate(
+    total_activity = sum(activity_counts))
+
+total_activity_df %>% 
+  group_by(week) %>% 
+  ggplot(aes(x = day_id, y = total_activity, color = day)) + 
+  geom_point() +
+  geom_line()
+```
+
+From the plot we can see that the total activity time for each day differs significantly from one day to another. Moreover, even for the same day of the week, the activity time courses are very different week from week. This is abnormal, suggesting that there might be some mistake in the original data, especially the recording in Saturday, where the participants had as high as  607175 counts in week two and as low as 1440 in week 4 and 5. Therefore, we might have to go back to the original data and correct the data before further analysis.
